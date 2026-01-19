@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveDeviceContext } from "@/lib/auth/deviceAuth";
 import { takeDose, ForbiddenError, NotFoundError } from "@/features/doses/usecases/takeDose";
 
-export async function POST(req: NextRequest, ctxRoute: { params: Promise<{ doseEventId: string }> }) {
+export async function POST(
+  req: NextRequest,
+  context: { params: Promise<{ doseEventId: string }> }
+) {
   try {
     const ctx = await resolveDeviceContext(req);
-    const { doseEventId } = await ctxRoute.params;
+    const { doseEventId } = await context.params;
 
-    // 未ペアリング patient は take できない
-    const familyGroupId = ctx.role === "patient" ? ctx.familyGroupId : ctx.familyGroupId;
+    const familyGroupId = ctx.familyGroupId;
     if (!familyGroupId) {
       return NextResponse.json({ error: "Device not paired yet" }, { status: 400 });
     }

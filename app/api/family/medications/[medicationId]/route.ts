@@ -4,15 +4,20 @@ import { medicationUpdateSchema } from "@/features/medications/schemas";
 import { updateMedication } from "@/features/medications/usecases/updateMedication";
 import { deleteMedication } from "@/features/medications/usecases/deleteMedication";
 
-export async function PATCH(req: NextRequest, { params }: { params: { medicationId: string } }) {
+export async function PATCH(
+  req: NextRequest,
+  context: { params: Promise<{ medicationId: string }> }
+) {
   try {
     const ctx = await requireCaregiverContext(req);
+    const { medicationId } = await context.params;
+
     const body = await req.json().catch(() => ({}));
     const input = medicationUpdateSchema.parse(body);
 
     const data = await updateMedication({
       familyGroupId: ctx.familyGroupId,
-      medicationId: params.medicationId,
+      medicationId,
       ...input,
     });
     return NextResponse.json(data);
@@ -25,10 +30,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { medication
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { medicationId: string } }) {
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ medicationId: string }> }
+) {
   try {
     const ctx = await requireCaregiverContext(req);
-    const data = await deleteMedication({ familyGroupId: ctx.familyGroupId, medicationId: params.medicationId });
+    const { medicationId } = await context.params;
+
+    const data = await deleteMedication({
+      familyGroupId: ctx.familyGroupId,
+      medicationId,
+    });
     return NextResponse.json(data);
   } catch (e: any) {
     const status = e?.name === "UnauthorizedError" ? 401 : 500;
