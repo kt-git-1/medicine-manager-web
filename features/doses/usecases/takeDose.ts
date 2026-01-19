@@ -1,81 +1,59 @@
 import { prisma } from "@/lib/prisma";
 
-export class NotFoundError extends Error {
-  constructor(msg = "Not found") {
-    super(msg);
-    this.name = "NotFoundError";
-  }
-}
-
-export class ForbiddenError extends Error {
-  constructor(msg = "Forbidden") {
-    super(msg);
-    this.name = "ForbiddenError";
-  }
-}
+export class NotFoundError extends Error {}
+export class ForbiddenError extends Error {}
 
 export async function takeDose(args: {
   familyGroupId: string;
   doseEventId: string;
   source: "patient" | "caregiver";
-  nowUtc?: Date;
 }) {
-  const nowUtc = args.nowUtc ?? new Date();
+  const now = new Date();
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const updatedCount = await tx.doseEvent.updateMany({
+  return prisma.$transaction(async (tx) => {
+    // 1) doseEvent を取得（familyGroupで権限チェック）
+    const ev = await tx.doseEvent.findFirst({
       where: {
         id: args.doseEventId,
-        status: "planned",
-        schedule: {
-          medication: { familyGroupId: args.familyGroupId },
-        },
+        schedule: { medication: { familyGroupId: args.familyGroupId } },
       },
-      data: {
-        status: "taken",
-        takenAt: nowUtc,
-        source: args.source,
-      },
-    });
-
-    if (updatedCount.count === 0) {
-      const existing = await tx.doseEvent.findUnique({
-        where: { id: args.doseEventId },
-        include: {
-          schedule: {
-            include: {
-              medication: true,
-            },
-          },
-        },
-      });
-      if (!existing) throw new NotFoundError("DoseEvent not found");
-      if (existing.schedule.medication.familyGroupId !== args.familyGroupId)
-        throw new ForbiddenError();
-      return existing;
-    }
-
-    const updatedEvent = await tx.doseEvent.findUnique({
-      where: { id: args.doseEventId },
       include: {
         schedule: { include: { medication: true } },
       },
     });
-    if (!updatedEvent) throw new NotFoundError("DoseEvent not found");
 
-    const dosesPerTime = updatedEvent.schedule.dosesPerTime ?? 1;
+    if (!ev) throw new NotFoundError("DoseEvent not found");
 
-    // remainingCount を減らす（ある場合のみ、0未満にしない）
-    const med = updatedEvent.schedule.medication;
-    if (typeof med.remainingCount === "number") {
+    // 2) planned 以外は変更しない（taken/missed/skipped は idempotent）
+    if (ev.status !== "planned") {
+      return ev;
+    }
+
+    // 3) DoseEvent を taken に更新
+    const updatedEvent = await tx.doseEvent.update({
+      where: { id: ev.id },
+      data: {
+        status: "taken",
+        takenAt: now,
+        source: args.source, // DoseSource? の型に合わせて
+      },
+      include: {
+        schedule: { include: { medication: true } },
+      },
+    });
+
+    // 4) 残薬減算（remainingCount がある薬だけ）
+    const med = ev.schedule.medication;
+    if (med.remainingCount !== null) {
+      const dec = ev.schedule.dosesPerTime ?? 1;
       const decremented = await tx.medication.updateMany({
         where: {
           id: med.id,
-          remainingCount: { gte: dosesPerTime },
+          remainingCount: { gte: dec },
         },
         data: {
-          remainingCount: { decrement: dosesPerTime },
-          remainingUpdatedAt: nowUtc,
+          remainingCount: { decrement: dec },
+          remainingUpdatedAt: now,
         },
       });
 
@@ -83,33 +61,19 @@ export async function takeDose(args: {
         await tx.medication.updateMany({
           where: {
             id: med.id,
-            remainingCount: { gt: 0, lt: dosesPerTime },
+            remainingCount: { gt: 0, lt: dec },
           },
           data: {
             remainingCount: 0,
-            remainingUpdatedAt: nowUtc,
+            remainingUpdatedAt: now,
           },
         });
       }
-    }
 
-    // 通知ログ（MVPでは taken は任意だが、あとで便利なので残す）
-    await tx.notificationEvent.create({
-      data: {
-        familyGroupId: args.familyGroupId,
-        type: "taken",
-        occurredAt: nowUtc,
-        payloadJson: {
-          medicationId: med.id,
-          medicationName: med.name,
-          plannedAt: updatedEvent.plannedAt,
-          takenAt: updatedEvent.takenAt,
-        },
-      },
-    });
+      // updatedEvent に最新remainingCountを反映したければ再取得して返す手もあるが
+      // MVPではrefresh()で再読み込みしているので、ここでは不要でもOK
+    }
 
     return updatedEvent;
   });
-
-  return updated;
 }
