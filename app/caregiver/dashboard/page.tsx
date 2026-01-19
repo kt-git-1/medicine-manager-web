@@ -22,7 +22,7 @@ type DoseEvent = {
 
 type NotificationEvent = {
   id: string;
-  type: "taken" | "missed" | "low_stock";
+  type: string;
   occurredAt: string;
   payloadJson: any;
 };
@@ -130,15 +130,18 @@ export default function CaregiverDashboardPage() {
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch("/api/family/today", { headers });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Failed to load today");
-      setDoseEvents(json.doseEvents ?? []);
+      const [resToday, resNotifs] = await Promise.all([
+        fetch("/api/family/today", { headers }),
+        fetch("/api/family/notifications?limit=20&days=7", { headers }),
+      ]);
 
-      const res2 = await fetch("/api/family/notifications?limit=20&days=7", { headers });
-      const json2 = await res2.json();
-      if (!res2.ok) throw new Error(json2?.error ?? "Failed to load notifications");
-      setNotifications(json2.items ?? []);
+      const jsonToday = await resToday.json();
+      if (!resToday.ok) throw new Error(jsonToday?.error ?? "Failed to load today");
+      setDoseEvents(jsonToday.doseEvents ?? []);
+
+      const jsonNotifs = await resNotifs.json();
+      if (!resNotifs.ok) throw new Error(jsonNotifs?.error ?? "Failed to load notifications");
+      setNotifications(jsonNotifs.items ?? []);
     } catch (e: any) {
       setErr(e?.message ?? "Error");
     } finally {
@@ -176,7 +179,7 @@ export default function CaregiverDashboardPage() {
   const takenCount = doseEvents.filter((d) => d.status === "taken").length;
 
   const lowStock = notifications.filter((n) => n.type === "low_stock");
-  const missedNotifs = notifications.filter((n) => n.type === "missed");
+  const missedNotifs = notifications.filter((n) => n.type === "missed" || n.type === "missed_dose");
 
   const filtered = doseEvents
     .filter((d) => (filter === "all" ? true : d.status === filter))
@@ -201,30 +204,30 @@ export default function CaregiverDashboardPage() {
           </p>
         </div>
 
-        <Link
-          href="/caregiver/pairing"
-          style={{
-            border: "1px solid #ddd",
-            background: "#111",
-            color: "white",
-            padding: "10px 12px",
-            borderRadius: 10,
-            fontWeight: 900,
-            textDecoration: "none",
-            whiteSpace: "nowrap",
-          }}
-        >
-          ペアリングコード発行
-        </Link>  
-
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <Link
+            href="/caregiver/pairing"
+            style={{
+              border: "1px solid #ddd",
+              background: "#111",
+              color: "white",
+              padding: "10px 12px",
+              borderRadius: 10,
+              fontWeight: 900,
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            ペアリングコード発行
+          </Link>
+
           <button
             onClick={refresh}
             disabled={!headers || loading}
             style={{
               border: "1px solid #ddd",
               background: "white",
-              padding: "8px 10px",
+              padding: "10px 12px",
               borderRadius: 10,
               fontWeight: 800,
               cursor: "pointer",
@@ -255,9 +258,15 @@ export default function CaregiverDashboardPage() {
       <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 14 }}>
         <Card title="今日の状態">
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13 }}><b>予定</b> {plannedCount}</span>
-            <span style={{ fontSize: 13 }}><b>未服薬</b> {missedCount}</span>
-            <span style={{ fontSize: 13 }}><b>飲んだ</b> {takenCount}</span>
+            <span style={{ fontSize: 13 }}>
+              <b>予定</b> {plannedCount}
+            </span>
+            <span style={{ fontSize: 13 }}>
+              <b>未服薬</b> {missedCount}
+            </span>
+            <span style={{ fontSize: 13 }}>
+              <b>飲んだ</b> {takenCount}
+            </span>
           </div>
           {missedCount > 0 && (
             <div style={{ marginTop: 10, padding: 10, borderRadius: 12, border: "1px solid #ffd0d6", background: "#fff0f0" }}>
@@ -295,7 +304,11 @@ export default function CaregiverDashboardPage() {
               {notifications.slice(0, 5).map((n) => (
                 <li key={n.id} style={{ marginBottom: 6, fontSize: 12 }}>
                   <b>
-                    {n.type === "missed" ? "未服薬" : n.type === "low_stock" ? "残薬" : "服薬"}
+                    {n.type === "missed" || n.type === "missed_dose"
+                      ? "未服薬"
+                      : n.type === "low_stock"
+                      ? "残薬"
+                      : "服薬"}
                   </b>{" "}
                   {n.payloadJson?.medicationName ? `- ${n.payloadJson.medicationName}` : ""}
                   <span style={{ color: "#777" }}>（{fmtJstMdHm(n.occurredAt)}）</span>
