@@ -46,16 +46,30 @@ export async function takeDose(args: {
     const med = updatedEvent.schedule.medication;
     if (typeof med.remainingCount === "number") {
       const dec = ev.schedule.dosesPerTime ?? 1;
-    
-      // Postgresで原子的に clamp 更新
-      await tx.$executeRaw`
-        UPDATE "Medication"
-        SET "remainingCount" = GREATEST(0, "remainingCount" - ${dec}),
-            "remainingUpdatedAt" = ${now},
-            "updatedAt" = ${now}
-        WHERE id = ${med.id}
-      `;
-    
+      const decremented = await tx.medication.updateMany({
+        where: {
+          id: med.id,
+          remainingCount: { gte: dec },
+        },
+        data: {
+          remainingCount: { decrement: dec },
+          remainingUpdatedAt: now,
+        },
+      });
+
+      if (decremented.count === 0) {
+        await tx.medication.updateMany({
+          where: {
+            id: med.id,
+            remainingCount: { gt: 0, lt: dec },
+          },
+          data: {
+            remainingCount: 0,
+            remainingUpdatedAt: now,
+          },
+        });
+      }
+
       const refreshed = await tx.doseEvent.findUnique({
         where: { id: ev.id },
         include: { schedule: { include: { medication: true } } },
