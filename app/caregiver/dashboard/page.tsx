@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 type DoseEvent = {
   id: string;
@@ -199,6 +200,22 @@ export default function CaregiverDashboardPage() {
             代理で「飲んだ」を記録できます（本人は操作なしでもOK）
           </p>
         </div>
+
+        <Link
+          href="/caregiver/pairing"
+          style={{
+            border: "1px solid #ddd",
+            background: "#111",
+            color: "white",
+            padding: "10px 12px",
+            borderRadius: 10,
+            fontWeight: 900,
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          ペアリングコード発行
+        </Link>  
 
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button
