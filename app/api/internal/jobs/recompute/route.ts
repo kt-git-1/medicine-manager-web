@@ -5,6 +5,7 @@ import { computeLowStock } from "@/features/notifications/usecases/computeLowSto
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 function requireCronAuth(req: NextRequest): boolean {
   const auth = req.headers.get("authorization") ?? "";
@@ -14,7 +15,6 @@ function requireCronAuth(req: NextRequest): boolean {
 }
 
 async function run() {
-  // MVP：全FamilyGroupに対して処理（規模が小さい想定）
   const groups = await prisma.familyGroup.findMany({ select: { id: true } });
 
   let totalMissed = 0;
