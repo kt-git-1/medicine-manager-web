@@ -1,0 +1,5 @@
+{
+    "crons": [
+      { "path": "app/api/internal/jobs/recompute", "schedule": "5 * * * *" }
+    ]
+}

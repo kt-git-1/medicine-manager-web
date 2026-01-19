@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePatientContext } from "@/lib/auth/deviceAuth";
-import { generateTodayDosesForFamilyGroup } from "@/features/doses/usecases/generateTodayDoses";
-import { listTodayDosesForFamilyGroup } from "@/features/doses/usecases/listTodayDoses";
+import { ensureTodayDoseEvents } from "@/features/doses/usecases/ensureTodayDoseEvents";
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,16 +9,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Device not paired yet" }, { status: 400 });
     }
 
-    await generateTodayDosesForFamilyGroup({ familyGroupId: ctx.familyGroupId });
-    const { startUtc, endUtc, doseEvents } = await listTodayDosesForFamilyGroup({
+    const { startUtc, endUtc, doseEvents } = await ensureTodayDoseEvents({
       familyGroupId: ctx.familyGroupId,
     });
 
-    return NextResponse.json({
-      startUtc: startUtc.toISOString(),
-      endUtc: endUtc.toISOString(),
-      doseEvents,
-    });
+    return NextResponse.json({ startUtc, endUtc, doseEvents });
   } catch (e: any) {
     const status = e?.name === "UnauthorizedError" ? 401 : 500;
     return NextResponse.json({ error: e?.message ?? "Server error" }, { status });
