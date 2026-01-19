@@ -43,8 +43,8 @@ export async function takeDose(args: {
     });
 
     // 4) 残薬減算（remainingCount がある薬だけ）
-    const med = ev.schedule.medication;
-    if (med.remainingCount !== null) {
+    const med = updatedEvent.schedule.medication;
+    if (typeof med.remainingCount === "number") {
       const dec = ev.schedule.dosesPerTime ?? 1;
       const decremented = await tx.medication.updateMany({
         where: {
@@ -70,8 +70,13 @@ export async function takeDose(args: {
         });
       }
 
-      // updatedEvent に最新remainingCountを反映したければ再取得して返す手もあるが
-      // MVPではrefresh()で再読み込みしているので、ここでは不要でもOK
+      const refreshed = await tx.doseEvent.findUnique({
+        where: { id: ev.id },
+        include: { schedule: { include: { medication: true } } },
+      });
+      if (refreshed) {
+        return refreshed;
+      }
     }
 
     return updatedEvent;
