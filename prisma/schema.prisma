@@ -1,0 +1,147 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../prisma/generated/prisma"
+  engineType    = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DoseStatus {
+  planned
+  taken
+  missed
+  skipped
+}
+
+enum DoseSource {
+  patient
+  caregiver
+}
+
+enum NotificationType {
+  taken
+  missed
+  low_stock
+}
+
+model FamilyGroup {
+  id          String            @id @default(cuid())
+  name        String?
+  createdAt   DateTime          @default(now())
+
+  caregiverDevices CaregiverDevice[]
+  patientDevices   PatientDevice[]
+  pairingCodes     PairingCode[]
+  medications      Medication[]
+  notifications    NotificationEvent[]
+}
+
+model CaregiverDevice {
+  id            String     @id @default(cuid())
+  familyGroupId String
+  deviceToken   String     @unique
+  label         String?
+  createdAt     DateTime   @default(now())
+
+  familyGroup FamilyGroup @relation(fields: [familyGroupId], references: [id], onDelete: Cascade)
+
+  @@index([familyGroupId])
+}
+
+model PatientDevice {
+  id            String    @id @default(cuid())
+  familyGroupId String?
+  deviceToken   String    @unique
+  tz            String    @default("Asia/Tokyo")
+  label         String?
+  createdAt     DateTime  @default(now())
+
+  familyGroup FamilyGroup? @relation(fields: [familyGroupId], references: [id], onDelete: SetNull)
+
+  @@index([familyGroupId])
+}
+
+model PairingCode {
+  code         String    @id
+  familyGroupId String
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  familyGroup FamilyGroup @relation(fields: [familyGroupId], references: [id], onDelete: Cascade)
+
+  @@index([familyGroupId])
+  @@index([expiresAt])
+  @@index([usedAt])
+}
+
+model Medication {
+  id                 String     @id @default(cuid())
+  familyGroupId      String
+  name               String
+  instructions       String?
+  remainingCount     Int?
+  remainingUpdatedAt DateTime?
+  isActive           Boolean    @default(true)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  familyGroup FamilyGroup @relation(fields: [familyGroupId], references: [id], onDelete: Cascade)
+  schedules   DoseSchedule[]
+  // notifications are group-level (NotificationEvent), so no direct relation here.
+
+  @@index([familyGroupId])
+  @@index([isActive])
+}
+
+model DoseSchedule {
+  id             String    @id @default(cuid())
+  medicationId   String
+  timeOfDay      String    // "HH:MM"
+  daysOfWeekMask Int       // bitmask 0..127
+  dosesPerTime   Int       @default(1)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  medication Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  doseEvents  DoseEvent[]
+
+  @@index([medicationId])
+  @@index([daysOfWeekMask])
+}
+
+model DoseEvent {
+  id         String     @id @default(cuid())
+  scheduleId String
+  plannedAt  DateTime
+  takenAt    DateTime?
+  status     DoseStatus @default(planned)
+  source     DoseSource?
+
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  schedule DoseSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  // idempotent generation
+  @@unique([scheduleId, plannedAt])
+  @@index([plannedAt])
+  @@index([status])
+  @@index([scheduleId])
+}
+
+model NotificationEvent {
+  id           String           @id @default(cuid())
+  familyGroupId String
+  type         NotificationType
+  occurredAt   DateTime
+  payloadJson  Json
+  createdAt    DateTime         @default(now())
+
+  familyGroup FamilyGroup @relation(fields: [familyGroupId], references: [id], onDelete: Cascade)
+
+  @@index([familyGroupId, occurredAt])
+  @@index([type])
+}
