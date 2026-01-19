@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Medicine Manager",
-  description: "Medicine Manager",
+  description: "Medicine Manager App",
 };
 
 export default function RootLayout({
