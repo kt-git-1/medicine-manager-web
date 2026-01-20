@@ -30,20 +30,16 @@ export async function markMissedDoses(args: {
     // missed へ更新（まとめて）
     await tx.doseEvent.updateMany({
       where: { id: { in: targets.map((t) => t.id) } },
-      data: { status: "missed" },
+      data: { status: "missed", updatedAt: nowUtc },
     });
 
     // missed 通知（連投防止：同じdoseEventIdは1回だけ）
     for (const t of targets) {
-      // 既にmissed通知があるかチェック（payloadJson.doseEventId）
       const exists = await tx.notificationEvent.findFirst({
         where: {
           familyGroupId: args.familyGroupId,
           type: "missed",
-          payloadJson: {
-            path: ["doseEventId"],
-            equals: t.id,
-          },
+          payloadJson: { path: ["doseEventId"], equals: t.id },
         },
         select: { id: true },
       });
@@ -53,12 +49,14 @@ export async function markMissedDoses(args: {
         data: {
           familyGroupId: args.familyGroupId,
           type: "missed",
-          occurredAt: nowUtc,
+          // ✅ 予定時刻ベースで並ぶ方が分かりやすい
+          occurredAt: t.plannedAt,
           payloadJson: {
             doseEventId: t.id,
             medicationId: t.schedule.medication.id,
             medicationName: t.schedule.medication.name,
             plannedAt: t.plannedAt,
+            detectedAt: nowUtc, // 任意：検知時刻も残す
           },
         },
       });

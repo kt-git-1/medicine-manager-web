@@ -21,26 +21,25 @@ export async function computeLowStock(args: {
   const dedupeHours = args.dedupeHours ?? 24;
   const dedupeSince = new Date(nowUtc.getTime() - dedupeHours * 60 * 60 * 1000);
 
-  // remainingCount がある薬のみ対象
-  const meds = await prisma.medication.findMany({
-    where: {
-      familyGroupId: args.familyGroupId,
-      isActive: true,
-      remainingCount: { not: null },
-    },
-    include: {
-      schedules: true,
-    },
-  });
-
   let created = 0;
+  let updated = 0;
 
   await prisma.$transaction(async (tx) => {
-    for (const med of meds) {
-      const remaining = med.remainingCount ?? null;
-      if (remaining === null) continue;
+    // ✅ meds 取得も tx 内で
+    const meds = await tx.medication.findMany({
+      where: {
+        familyGroupId: args.familyGroupId,
+        isActive: true,
+        remainingCount: { not: null },
+      },
+      include: { schedules: true },
+    });
 
-      // 週あたり消費量を計算（曜日ビット数×dosesPerTime）
+    for (const med of meds) {
+      const remaining = med.remainingCount;
+      if (typeof remaining !== "number") continue;
+
+      // 週あたり消費量
       let weekly = 0;
       for (const s of med.schedules) {
         const days = popcount7(s.daysOfWeekMask);
@@ -53,37 +52,50 @@ export async function computeLowStock(args: {
 
       const daysLeft = remaining / dailyAvg;
 
-      if (daysLeft <= thresholdDays) {
-        // 直近dedupeHours内に同薬のlow_stockがあるなら作らない
-        const exists = await tx.notificationEvent.findFirst({
-          where: {
-            familyGroupId: args.familyGroupId,
-            type: "low_stock",
-            occurredAt: { gte: dedupeSince },
-            payloadJson: { path: ["medicationId"], equals: med.id },
-          },
-          select: { id: true },
-        });
-        if (exists) continue;
+      // low_stock 対象でないなら何もしない（MVP）
+      if (daysLeft > thresholdDays) continue;
 
-        await tx.notificationEvent.create({
-          data: {
-            familyGroupId: args.familyGroupId,
-            type: "low_stock",
-            occurredAt: nowUtc,
-            payloadJson: {
-              medicationId: med.id,
-              medicationName: med.name,
-              remainingCount: remaining,
-              estimatedDaysLeft: Number(daysLeft.toFixed(1)),
-              thresholdDays,
-            },
-          },
+      // ✅ 直近dedupeHours内の同薬low_stock（最新1件）を探す
+      const latest = await tx.notificationEvent.findFirst({
+        where: {
+          familyGroupId: args.familyGroupId,
+          type: "low_stock",
+          occurredAt: { gte: dedupeSince },
+          payloadJson: { path: ["medicationId"], equals: med.id },
+        },
+        orderBy: { occurredAt: "desc" },
+        select: { id: true },
+      });
+
+      const payload = {
+        medicationId: med.id,
+        medicationName: med.name,
+        remainingCount: remaining,
+        estimatedDaysLeft: Number(daysLeft.toFixed(1)),
+        thresholdDays,
+      };
+
+      if (latest) {
+        // ✅ 既存があるなら「作らずに最新化」して dashboard 表示を常に更新
+        await tx.notificationEvent.update({
+          where: { id: latest.id },
+          data: { payloadJson: payload },
         });
-        created++;
+        updated++;
+        continue;
       }
+
+      await tx.notificationEvent.create({
+        data: {
+          familyGroupId: args.familyGroupId,
+          type: "low_stock",
+          occurredAt: nowUtc,
+          payloadJson: payload,
+        },
+      });
+      created++;
     }
   });
 
-  return { created };
+  return { created, updated };
 }
