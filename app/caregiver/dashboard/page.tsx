@@ -289,6 +289,47 @@ export default function CaregiverDashboardPage() {
         </div>
       </header>
 
+      {loading && (
+        <div
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(17,17,17,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              color: "#111",
+              padding: "14px 18px",
+              borderRadius: 12,
+              fontWeight: 900,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+              boxShadow: "0 8px 30px rgba(0,0,0,0.2)",
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                background: "#111",
+                display: "inline-block",
+              }}
+            />
+            更新中…
+          </div>
+        </div>
+      )}
+
       {err && (
         <div
           style={{
