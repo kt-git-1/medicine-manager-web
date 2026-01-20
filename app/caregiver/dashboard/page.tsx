@@ -189,11 +189,6 @@ export default function CaregiverDashboardPage() {
       return d.schedule.medication.name.toLowerCase().includes(q);
     });
 
-  async function copyToken() {
-    if (!token) return;
-    await navigator.clipboard.writeText(token);
-  }
-
   return (
     <main style={{ padding: 18, maxWidth: 980, margin: "0 auto", background: "#fafafa", minHeight: "100vh" }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
@@ -204,7 +199,16 @@ export default function CaregiverDashboardPage() {
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        {/* 右上導線 */}
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            flexWrap: "wrap",
+            justifyContent: "flex-end",
+          }}
+        >
           <Link
             href="/caregiver/pairing"
             style={{
@@ -219,6 +223,38 @@ export default function CaregiverDashboardPage() {
             }}
           >
             ペアリングコード発行
+          </Link>
+
+          <Link
+            href="/caregiver/medications"
+            style={{
+              border: "1px solid #ddd",
+              background: "white",
+              color: "#111",
+              padding: "10px 12px",
+              borderRadius: 10,
+              fontWeight: 900,
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            薬を管理
+          </Link>
+
+          <Link
+            href="/caregiver/notifications"
+            style={{
+              border: "1px solid #ddd",
+              background: "white",
+              color: "#111",
+              padding: "10px 12px",
+              borderRadius: 10,
+              fontWeight: 900,
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            通知一覧
           </Link>
 
           <button
@@ -269,7 +305,15 @@ export default function CaregiverDashboardPage() {
             </span>
           </div>
           {missedCount > 0 && (
-            <div style={{ marginTop: 10, padding: 10, borderRadius: 12, border: "1px solid #ffd0d6", background: "#fff0f0" }}>
+            <div
+              style={{
+                marginTop: 10,
+                padding: 10,
+                borderRadius: 12,
+                border: "1px solid #ffd0d6",
+                background: "#fff0f0",
+              }}
+            >
               <b style={{ color: "#b00020" }}>未服薬があります</b>
               <div style={{ marginTop: 6, fontSize: 13, color: "#555" }}>
                 本人に確認して、必要なら代理で「飲んだ」を押してください。
@@ -285,15 +329,13 @@ export default function CaregiverDashboardPage() {
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {lowStock.slice(0, 4).map((n) => (
                 <li key={n.id} style={{ marginBottom: 6, fontSize: 13 }}>
-                  <b>{n.payloadJson?.medicationName ?? "薬"}</b>{" "}
-                  残り {n.payloadJson?.remainingCount ?? "-"}（約 {n.payloadJson?.estimatedDaysLeft ?? "-"} 日）
+                  <b>{n.payloadJson?.medicationName ?? "薬"}</b> 残り {n.payloadJson?.remainingCount ?? "-"}（約{" "}
+                  {n.payloadJson?.estimatedDaysLeft ?? "-"} 日）
                 </li>
               ))}
             </ul>
           )}
-          <div style={{ marginTop: 10, fontSize: 12, color: "#777" }}>
-            ※ 残数入力のある薬のみ推定します
-          </div>
+          <div style={{ marginTop: 10, fontSize: 12, color: "#777" }}>※ 残数入力のある薬のみ推定します</div>
         </Card>
 
         <Card title="通知（直近7日）">
@@ -317,9 +359,7 @@ export default function CaregiverDashboardPage() {
             </ul>
           )}
           {missedNotifs.length > 0 && (
-            <div style={{ marginTop: 10, fontSize: 12, color: "#777" }}>
-              未服薬通知: {missedNotifs.length} 件
-            </div>
+            <div style={{ marginTop: 10, fontSize: 12, color: "#777" }}>未服薬通知: {missedNotifs.length} 件</div>
           )}
         </Card>
       </section>
@@ -369,21 +409,6 @@ export default function CaregiverDashboardPage() {
               background: "white",
             }}
           />
-          <button
-            onClick={copyToken}
-            disabled={!token}
-            style={{
-              border: "1px solid #ddd",
-              background: "white",
-              padding: "8px 10px",
-              borderRadius: 10,
-              fontWeight: 800,
-              cursor: "pointer",
-            }}
-            title="deviceToken をコピー"
-          >
-            tokenコピー
-          </button>
         </div>
       </section>
 
@@ -398,29 +423,66 @@ export default function CaregiverDashboardPage() {
             boxShadow: "0 1px 10px rgba(0,0,0,0.03)",
           }}
         >
-          <div style={{ padding: 12, borderBottom: "1px solid #eee", display: "flex", justifyContent: "space-between" }}>
+          <div
+            style={{
+              padding: 12,
+              borderBottom: "1px solid #eee",
+              display: "flex",
+              justifyContent: "space-between",
+            }}
+          >
             <div style={{ fontWeight: 900 }}>今日の服薬</div>
             <div style={{ fontSize: 12, color: "#777" }}>表示: {filtered.length} 件</div>
           </div>
 
           {filtered.length === 0 ? (
-            <div style={{ padding: 12, color: "#555" }}>
-              条件に一致する予定がありません（薬・スケジュール登録を確認）
-            </div>
+            <div style={{ padding: 12, color: "#555" }}>条件に一致する予定がありません（薬・スケジュール登録を確認）</div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: "left", borderBottom: "1px solid #eee", padding: 12, fontSize: 12, color: "#666" }}>
+                  <th
+                    style={{
+                      textAlign: "left",
+                      borderBottom: "1px solid #eee",
+                      padding: 12,
+                      fontSize: 12,
+                      color: "#666",
+                    }}
+                  >
                     時刻
                   </th>
-                  <th style={{ textAlign: "left", borderBottom: "1px solid #eee", padding: 12, fontSize: 12, color: "#666" }}>
+                  <th
+                    style={{
+                      textAlign: "left",
+                      borderBottom: "1px solid #eee",
+                      padding: 12,
+                      fontSize: 12,
+                      color: "#666",
+                    }}
+                  >
                     薬
                   </th>
-                  <th style={{ textAlign: "left", borderBottom: "1px solid #eee", padding: 12, fontSize: 12, color: "#666" }}>
+                  <th
+                    style={{
+                      textAlign: "left",
+                      borderBottom: "1px solid #eee",
+                      padding: 12,
+                      fontSize: 12,
+                      color: "#666",
+                    }}
+                  >
                     状態
                   </th>
-                  <th style={{ textAlign: "left", borderBottom: "1px solid #eee", padding: 12, fontSize: 12, color: "#666" }}>
+                  <th
+                    style={{
+                      textAlign: "left",
+                      borderBottom: "1px solid #eee",
+                      padding: 12,
+                      fontSize: 12,
+                      color: "#666",
+                    }}
+                  >
                     残数
                   </th>
                   <th style={{ borderBottom: "1px solid #eee", padding: 12 }}></th>
@@ -468,12 +530,6 @@ export default function CaregiverDashboardPage() {
             </table>
           )}
         </div>
-
-        {token && (
-          <div style={{ marginTop: 10, fontSize: 12, color: "#777" }}>
-            deviceToken（家族）: {token}
-          </div>
-        )}
       </section>
     </main>
   );
