@@ -23,29 +23,12 @@ export async function takeDose(args: {
     });
 
     if (!ev) throw new NotFoundError("DoseEvent not found");
+    const doseEvent = ev;
 
-    // 2) planned 以外は変更しない（taken/missed/skipped は idempotent）
-    if (ev.status !== "planned") {
-      return ev;
-    }
+    const dec = doseEvent.schedule.dosesPerTime ?? 1;
 
-    // 3) DoseEvent を taken に更新
-    const updatedEvent = await tx.doseEvent.update({
-      where: { id: ev.id },
-      data: {
-        status: "taken",
-        takenAt: now,
-        source: args.source, // DoseSource? の型に合わせて
-      },
-      include: {
-        schedule: { include: { medication: true } },
-      },
-    });
-
-    // 4) 残薬減算（remainingCount がある薬だけ）
-    const med = updatedEvent.schedule.medication;
-    if (typeof med.remainingCount === "number") {
-      const dec = ev.schedule.dosesPerTime ?? 1;
+    async function decrementRemaining() {
+      const med = doseEvent.schedule.medication;
       const decremented = await tx.medication.updateMany({
         where: {
           id: med.id,
@@ -71,10 +54,45 @@ export async function takeDose(args: {
       }
 
       const refreshed = await tx.doseEvent.findUnique({
-        where: { id: ev.id },
+        where: { id: doseEvent.id },
         include: { schedule: { include: { medication: true } } },
       });
       if (refreshed) return refreshed;
+      return doseEvent;
+    }
+
+    // 2) planned 以外は変更しない（taken/missed/skipped は idempotent）
+    //    ただし過去の不整合で残薬が減っていない場合は補正する
+    if (doseEvent.status !== "planned") {
+      const med = doseEvent.schedule.medication;
+      if (
+        doseEvent.status === "taken" &&
+        doseEvent.takenAt &&
+        typeof med.remainingCount === "number" &&
+        (!med.remainingUpdatedAt || med.remainingUpdatedAt < doseEvent.takenAt)
+      ) {
+        return decrementRemaining();
+      }
+      return doseEvent;
+    }
+
+    // 3) DoseEvent を taken に更新
+    const updatedEvent = await tx.doseEvent.update({
+      where: { id: ev.id },
+      data: {
+        status: "taken",
+        takenAt: now,
+        source: args.source, // DoseSource? の型に合わせて
+      },
+      include: {
+        schedule: { include: { medication: true } },
+      },
+    });
+
+    // 4) 残薬減算（remainingCount がある薬だけ）
+    const med = updatedEvent.schedule.medication;
+    if (typeof med.remainingCount === "number") {
+      return decrementRemaining();
     }
 
     return updatedEvent;
