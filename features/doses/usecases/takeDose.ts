@@ -27,6 +27,67 @@ export async function takeDose(args: {
 
     const dec = doseEvent.schedule.dosesPerTime ?? 1;
 
+    function popcount7(mask: number): number {
+      let x = mask & 0x7f;
+      let c = 0;
+      while (x) {
+        x &= x - 1;
+        c++;
+      }
+      return c;
+    }
+
+    async function updateLowStockNotification(medicationId: string) {
+      const medWithSchedules = await tx.medication.findUnique({
+        where: { id: medicationId },
+        select: {
+          id: true,
+          name: true,
+          remainingCount: true,
+          schedules: { select: { daysOfWeekMask: true, dosesPerTime: true } },
+        },
+      });
+      if (!medWithSchedules || typeof medWithSchedules.remainingCount !== "number") return;
+
+      let weekly = 0;
+      for (const s of medWithSchedules.schedules) {
+        const days = popcount7(s.daysOfWeekMask);
+        weekly += (s.dosesPerTime ?? 1) * days;
+      }
+      const dailyAvg = weekly / 7;
+      const estimatedDaysLeft =
+        dailyAvg > 0 ? Number((medWithSchedules.remainingCount / dailyAvg).toFixed(1)) : null;
+
+      const latest = await tx.notificationEvent.findFirst({
+        where: {
+          familyGroupId: args.familyGroupId,
+          type: "low_stock",
+          payloadJson: { path: ["medicationId"], equals: medicationId },
+        },
+        orderBy: { occurredAt: "desc" },
+        select: { id: true, payloadJson: true },
+      });
+      if (!latest) return;
+
+      const existingPayload =
+        latest.payloadJson && typeof latest.payloadJson === "object" && !Array.isArray(latest.payloadJson)
+          ? (latest.payloadJson as Record<string, unknown>)
+          : {};
+
+      await tx.notificationEvent.update({
+        where: { id: latest.id },
+        data: {
+          payloadJson: {
+            ...existingPayload,
+            medicationId: medWithSchedules.id,
+            medicationName: medWithSchedules.name,
+            remainingCount: medWithSchedules.remainingCount,
+            estimatedDaysLeft,
+          },
+        },
+      });
+    }
+
     async function decrementRemaining() {
       const med = doseEvent.schedule.medication;
       const decremented = await tx.medication.updateMany({
@@ -52,6 +113,8 @@ export async function takeDose(args: {
           },
         });
       }
+
+      await updateLowStockNotification(med.id);
 
       const refreshed = await tx.doseEvent.findUnique({
         where: { id: doseEvent.id },
