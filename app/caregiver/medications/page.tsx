@@ -66,7 +66,11 @@ export default function CaregiverMedicationsPage() {
     1 << 4,
     1 << 5,
     1 << 6,
-  ]); // default毎日
+  ]); // default 毎日
+
+  // UI: 開閉（邪魔なら消してOK）
+  const [showAddMed, setShowAddMed] = useState(true);
+  const [showSchedForm, setShowSchedForm] = useState(true);
 
   useEffect(() => setToken(getOrCreateCaregiverToken()), []);
 
@@ -80,6 +84,12 @@ export default function CaregiverMedicationsPage() {
 
   function weekMask(): number {
     return weekChecks.reduce((acc, b) => acc | b, 0);
+  }
+
+  function toggleWeek(bit: number) {
+    setWeekChecks((prev) =>
+      prev.includes(bit) ? prev.filter((x) => x !== bit) : [...prev, bit].sort((a, b) => a - b)
+    );
   }
 
   async function refresh() {
@@ -114,9 +124,11 @@ export default function CaregiverMedicationsPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "Failed");
+
       setName("");
       setInstructions("");
       setRemaining("");
+
       await refresh();
     } catch (e: any) {
       setErr(e?.message ?? "Error");
@@ -215,12 +227,6 @@ export default function CaregiverMedicationsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [headers]);
 
-  function toggleWeek(bit: number) {
-    setWeekChecks((prev) =>
-      prev.includes(bit) ? prev.filter((x) => x !== bit) : [...prev, bit].sort((a, b) => a - b)
-    );
-  }
-
   return (
     <main style={{ padding: 18, maxWidth: 980, margin: "0 auto", background: "#fafafa", minHeight: "100vh" }}>
       {/* Header + 導線 */}
@@ -232,15 +238,7 @@ export default function CaregiverMedicationsPage() {
           </p>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            alignItems: "center",
-            flexWrap: "wrap",
-            justifyContent: "flex-end",
-          }}
-        >
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
           <Link
             href="/caregiver/dashboard"
             style={{
@@ -365,80 +363,118 @@ export default function CaregiverMedicationsPage() {
 
       {/* Create medication */}
       <section style={{ marginTop: 14, background: "white", border: "1px solid #eee", borderRadius: 14, padding: 14 }}>
-        <div style={{ fontWeight: 900, marginBottom: 10 }}>薬を追加</div>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr auto", gap: 8 }}>
-          <input
-            placeholder="薬名（例：アムロジピン）"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ border: "1px solid #ddd", borderRadius: 10, padding: 10 }}
-          />
-          <input
-            placeholder="メモ（例：朝1錠）"
-            value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
-            style={{ border: "1px solid #ddd", borderRadius: 10, padding: 10 }}
-          />
-          <input
-            placeholder="残数（任意）"
-            value={remaining}
-            onChange={(e) => setRemaining(e.target.value)}
-            style={{ border: "1px solid #ddd", borderRadius: 10, padding: 10 }}
-          />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <div style={{ fontWeight: 900 }}>薬を追加</div>
           <button
-            onClick={createMed}
-            disabled={loading || !name.trim()}
+            onClick={() => setShowAddMed((v) => !v)}
             style={{
               border: "1px solid #ddd",
-              background: "#111",
-              color: "white",
-              padding: "10px 12px",
-              borderRadius: 10,
+              background: "white",
+              padding: "6px 10px",
+              borderRadius: 999,
               fontWeight: 900,
+              cursor: "pointer",
+              fontSize: 12,
             }}
           >
-            追加
+            {showAddMed ? "閉じる" : "開く"}
           </button>
         </div>
+
+        {showAddMed && (
+          <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "2fr 2fr 1fr auto", gap: 8 }}>
+            <input
+              placeholder="薬名（例：アムロジピン）"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              style={{ border: "1px solid #ddd", borderRadius: 10, padding: 10 }}
+            />
+            <input
+              placeholder="メモ（例：朝1錠）"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              style={{ border: "1px solid #ddd", borderRadius: 10, padding: 10 }}
+            />
+            <input
+              placeholder="残数（任意）"
+              value={remaining}
+              onChange={(e) => setRemaining(e.target.value)}
+              style={{ border: "1px solid #ddd", borderRadius: 10, padding: 10 }}
+            />
+            <button
+              onClick={createMed}
+              disabled={loading || !name.trim()}
+              style={{
+                border: "1px solid #ddd",
+                background: "#111",
+                color: "white",
+                padding: "10px 12px",
+                borderRadius: 10,
+                fontWeight: 900,
+              }}
+            >
+              追加
+            </button>
+          </div>
+        )}
       </section>
 
       {/* Schedule form (shared) */}
       <section style={{ marginTop: 14, background: "white", border: "1px solid #eee", borderRadius: 14, padding: 14 }}>
-        <div style={{ fontWeight: 900, marginBottom: 8 }}>スケジュール入力（追加時に使う）</div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          <label style={{ fontSize: 13 }}>
-            時刻{" "}
-            <input
-              type="time"
-              value={timeOfDay}
-              onChange={(e) => setTimeOfDay(e.target.value)}
-              style={{ border: "1px solid #ddd", borderRadius: 10, padding: 8, marginLeft: 6 }}
-            />
-          </label>
-
-          <label style={{ fontSize: 13 }}>
-            回数{" "}
-            <input
-              type="number"
-              min={1}
-              max={10}
-              value={dosePerTime}
-              onChange={(e) => setDosePerTime(Number(e.target.value))}
-              style={{ width: 70, border: "1px solid #ddd", borderRadius: 10, padding: 8, marginLeft: 6 }}
-            />
-          </label>
-
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ fontSize: 13, fontWeight: 800 }}>曜日</span>
-            {WEEK.map((w) => (
-              <label key={w.bit} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
-                <input type="checkbox" checked={weekChecks.includes(w.bit)} onChange={() => toggleWeek(w.bit)} />
-                {w.label}
-              </label>
-            ))}
-            <span style={{ fontSize: 12, color: "#777" }}>（{maskToText(weekMask())}）</span>
-          </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <div style={{ fontWeight: 900 }}>スケジュール入力（追加時に使う）</div>
+          <button
+            onClick={() => setShowSchedForm((v) => !v)}
+            style={{
+              border: "1px solid #ddd",
+              background: "white",
+              padding: "6px 10px",
+              borderRadius: 999,
+              fontWeight: 900,
+              cursor: "pointer",
+              fontSize: 12,
+            }}
+          >
+            {showSchedForm ? "閉じる" : "開く"}
+          </button>
         </div>
+
+        {showSchedForm && (
+          <div style={{ marginTop: 10, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <label style={{ fontSize: 13 }}>
+              時刻{" "}
+              <input
+                type="time"
+                value={timeOfDay}
+                onChange={(e) => setTimeOfDay(e.target.value)}
+                style={{ border: "1px solid #ddd", borderRadius: 10, padding: 8, marginLeft: 6 }}
+              />
+            </label>
+
+            <label style={{ fontSize: 13 }}>
+              回数{" "}
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={dosePerTime}
+                onChange={(e) => setDosePerTime(Number(e.target.value))}
+                style={{ width: 70, border: "1px solid #ddd", borderRadius: 10, padding: 8, marginLeft: 6 }}
+              />
+            </label>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 13, fontWeight: 800 }}>曜日</span>
+              {WEEK.map((w) => (
+                <label key={w.bit} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
+                  <input type="checkbox" checked={weekChecks.includes(w.bit)} onChange={() => toggleWeek(w.bit)} />
+                  {w.label}
+                </label>
+              ))}
+              <span style={{ fontSize: 12, color: "#777" }}>（{maskToText(weekMask())}）</span>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Med list */}
@@ -448,22 +484,17 @@ export default function CaregiverMedicationsPage() {
         </div>
 
         {medications.length === 0 ? (
-          <div
-            style={{
-              marginTop: 10,
-              padding: 12,
-              background: "white",
-              border: "1px solid #eee",
-              borderRadius: 14,
-              color: "#555",
-            }}
-          >
+          <div style={{ marginTop: 10, padding: 12, background: "white", border: "1px solid #eee", borderRadius: 14, color: "#555" }}>
             薬がまだありません。上から追加してください。
           </div>
         ) : (
           <div style={{ marginTop: 10, display: "grid", gap: 12 }}>
             {medications.map((m) => (
-              <div key={m.id} style={{ background: "white", border: "1px solid #eee", borderRadius: 14, padding: 14 }}>
+              <div
+                key={m.id}
+                id={`med-${m.id}`} // ← notifications からジャンプできるように
+                style={{ background: "white", border: "1px solid #eee", borderRadius: 14, padding: 14, scrollMarginTop: 90 }}
+              >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                   <div>
                     <div style={{ fontSize: 16, fontWeight: 900 }}>

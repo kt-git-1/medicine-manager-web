@@ -403,6 +403,8 @@ export default function CaregiverNotificationsPage() {
               <tbody>
                 {filtered.map((n) => {
                   const name = n.payloadJson?.medicationName ?? "-";
+                  const medicationId = (n.payloadJson?.medicationId ?? "") as string;
+
                   const detail =
                     n.type === "low_stock"
                       ? `残り ${n.payloadJson?.remainingCount ?? "-"}（約 ${n.payloadJson?.estimatedDaysLeft ?? "-"} 日）`
@@ -415,10 +417,26 @@ export default function CaregiverNotificationsPage() {
                       <td style={{ padding: 12, borderBottom: "1px solid #f3f3f3", width: 110 }}>
                         <b style={{ fontSize: 13 }}>{typeLabel(n.type)}</b>
                       </td>
+
                       <td style={{ padding: 12, borderBottom: "1px solid #f3f3f3" }}>
-                        <div style={{ fontWeight: 900 }}>{name}</div>
-                        <div style={{ fontSize: 12, color: "#777", marginTop: 4 }}>{n.payloadJson?.medicationId ?? ""}</div>
+                        <div style={{ fontWeight: 900 }}>
+                          {medicationId ? (
+                            <Link
+                              href={`/caregiver/medications#med-${medicationId}`}
+                              style={{ color: "#111", textDecoration: "underline" }}
+                              title="薬の管理画面へ"
+                            >
+                              {name}
+                            </Link>
+                          ) : (
+                            name
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#777", marginTop: 4 }}>
+                          {medicationId ? `id: ${medicationId}` : ""}
+                        </div>
                       </td>
+
                       <td style={{ padding: 12, borderBottom: "1px solid #f3f3f3", width: 320 }}>
                         <span style={{ fontSize: 12, color: "#555" }}>{detail}</span>
                       </td>
