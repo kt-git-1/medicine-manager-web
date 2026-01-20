@@ -85,10 +85,25 @@ export default function CaregiverNotificationsPage() {
     setLoading(true);
     setErr(null);
     try {
+      let recomputeError: string | null = null;
+      try {
+        const recomputeRes = await fetch("/api/family/notifications/recompute", {
+          method: "POST",
+          headers,
+        });
+        if (!recomputeRes.ok) {
+          const recomputeJson = await recomputeRes.json();
+          recomputeError = recomputeJson?.error ?? "Failed to recompute notifications";
+        }
+      } catch (e: any) {
+        recomputeError = e?.message ?? "Failed to recompute notifications";
+      }
+
       const res = await fetch(`/api/family/notifications?limit=${limit}&days=${days}`, { headers });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "Failed to load notifications");
       setItems(json.items ?? []);
+      if (recomputeError) setErr(`再計算に失敗: ${recomputeError}`);
     } catch (e: any) {
       setErr(e?.message ?? "Error");
     } finally {
@@ -375,10 +390,6 @@ export default function CaregiverNotificationsPage() {
               </tbody>
             </table>
           )}
-        </div>
-
-        <div style={{ marginTop: 10, fontSize: 12, color: "#777" }}>
-          ※ payloadJson はイベント種別によって項目が異なります
         </div>
       </section>
     </main>

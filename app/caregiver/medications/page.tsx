@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 type Schedule = {
   id: string;
@@ -54,10 +55,18 @@ export default function CaregiverMedicationsPage() {
   const [instructions, setInstructions] = useState("");
   const [remaining, setRemaining] = useState<string>("");
 
-  // schedule form (per medication)
+  // schedule form (shared)
   const [timeOfDay, setTimeOfDay] = useState("08:00");
   const [dosePerTime, setDosePerTime] = useState(1);
-  const [weekChecks, setWeekChecks] = useState<number[]>([1<<0,1<<1,1<<2,1<<3,1<<4,1<<5,1<<6]); // default毎日
+  const [weekChecks, setWeekChecks] = useState<number[]>([
+    1 << 0,
+    1 << 1,
+    1 << 2,
+    1 << 3,
+    1 << 4,
+    1 << 5,
+    1 << 6,
+  ]); // default毎日
 
   useEffect(() => setToken(getOrCreateCaregiverToken()), []);
 
@@ -207,18 +216,108 @@ export default function CaregiverMedicationsPage() {
   }, [headers]);
 
   function toggleWeek(bit: number) {
-    setWeekChecks((prev) => (prev.includes(bit) ? prev.filter((x) => x !== bit) : [...prev, bit].sort((a,b)=>a-b)));
+    setWeekChecks((prev) =>
+      prev.includes(bit) ? prev.filter((x) => x !== bit) : [...prev, bit].sort((a, b) => a - b)
+    );
   }
 
   return (
     <main style={{ padding: 18, maxWidth: 980, margin: "0 auto", background: "#fafafa", minHeight: "100vh" }}>
-      <h1 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>薬・スケジュール管理</h1>
-      <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555" }}>
-        家族が薬を登録し、本人は通知を見るだけでも運用できます
-      </p>
+      {/* Header + 導線 */}
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>薬・スケジュール管理</h1>
+          <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555" }}>
+            家族が薬を登録し、本人は通知を見るだけでも運用できます
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            flexWrap: "wrap",
+            justifyContent: "flex-end",
+          }}
+        >
+          <Link
+            href="/caregiver/dashboard"
+            style={{
+              border: "1px solid #ddd",
+              background: "white",
+              color: "#111",
+              padding: "10px 12px",
+              borderRadius: 10,
+              fontWeight: 900,
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            ダッシュボード
+          </Link>
+
+          <Link
+            href="/caregiver/notifications"
+            style={{
+              border: "1px solid #ddd",
+              background: "white",
+              color: "#111",
+              padding: "10px 12px",
+              borderRadius: 10,
+              fontWeight: 900,
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            通知一覧
+          </Link>
+
+          <Link
+            href="/caregiver/pairing"
+            style={{
+              border: "1px solid #ddd",
+              background: "#111",
+              color: "white",
+              padding: "10px 12px",
+              borderRadius: 10,
+              fontWeight: 900,
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            ペアリングコード発行
+          </Link>
+
+          <button
+            onClick={refresh}
+            disabled={!headers || loading}
+            style={{
+              border: "1px solid #ddd",
+              background: "white",
+              padding: "10px 12px",
+              borderRadius: 10,
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+          >
+            {loading ? "更新中…" : "更新"}
+          </button>
+        </div>
+      </header>
 
       {err && (
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 12, border: "1px solid #ffd0d6", background: "#fff0f0", color: "#b00020", fontWeight: 800 }}>
+        <div
+          style={{
+            marginTop: 12,
+            padding: 12,
+            borderRadius: 12,
+            border: "1px solid #ffd0d6",
+            background: "#fff0f0",
+            color: "#b00020",
+            fontWeight: 800,
+          }}
+        >
           エラー: {err}
         </div>
       )}
@@ -227,10 +326,36 @@ export default function CaregiverMedicationsPage() {
       <section style={{ marginTop: 14, background: "white", border: "1px solid #eee", borderRadius: 14, padding: 14 }}>
         <div style={{ fontWeight: 900, marginBottom: 10 }}>薬を追加</div>
         <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr auto", gap: 8 }}>
-          <input placeholder="薬名（例：アムロジピン）" value={name} onChange={(e) => setName(e.target.value)} style={{ border: "1px solid #ddd", borderRadius: 10, padding: 10 }} />
-          <input placeholder="メモ（例：朝1錠）" value={instructions} onChange={(e) => setInstructions(e.target.value)} style={{ border: "1px solid #ddd", borderRadius: 10, padding: 10 }} />
-          <input placeholder="残数（任意）" value={remaining} onChange={(e) => setRemaining(e.target.value)} style={{ border: "1px solid #ddd", borderRadius: 10, padding: 10 }} />
-          <button onClick={createMed} disabled={loading || !name.trim()} style={{ border: "1px solid #ddd", background: "#111", color: "white", padding: "10px 12px", borderRadius: 10, fontWeight: 900 }}>
+          <input
+            placeholder="薬名（例：アムロジピン）"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            style={{ border: "1px solid #ddd", borderRadius: 10, padding: 10 }}
+          />
+          <input
+            placeholder="メモ（例：朝1錠）"
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+            style={{ border: "1px solid #ddd", borderRadius: 10, padding: 10 }}
+          />
+          <input
+            placeholder="残数（任意）"
+            value={remaining}
+            onChange={(e) => setRemaining(e.target.value)}
+            style={{ border: "1px solid #ddd", borderRadius: 10, padding: 10 }}
+          />
+          <button
+            onClick={createMed}
+            disabled={loading || !name.trim()}
+            style={{
+              border: "1px solid #ddd",
+              background: "#111",
+              color: "white",
+              padding: "10px 12px",
+              borderRadius: 10,
+              fontWeight: 900,
+            }}
+          >
             追加
           </button>
         </div>
@@ -242,12 +367,24 @@ export default function CaregiverMedicationsPage() {
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <label style={{ fontSize: 13 }}>
             時刻{" "}
-            <input type="time" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} style={{ border: "1px solid #ddd", borderRadius: 10, padding: 8, marginLeft: 6 }} />
+            <input
+              type="time"
+              value={timeOfDay}
+              onChange={(e) => setTimeOfDay(e.target.value)}
+              style={{ border: "1px solid #ddd", borderRadius: 10, padding: 8, marginLeft: 6 }}
+            />
           </label>
 
           <label style={{ fontSize: 13 }}>
             回数{" "}
-            <input type="number" min={1} max={10} value={dosePerTime} onChange={(e) => setDosePerTime(Number(e.target.value))} style={{ width: 70, border: "1px solid #ddd", borderRadius: 10, padding: 8, marginLeft: 6 }} />
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={dosePerTime}
+              onChange={(e) => setDosePerTime(Number(e.target.value))}
+              style={{ width: 70, border: "1px solid #ddd", borderRadius: 10, padding: 8, marginLeft: 6 }}
+            />
           </label>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -267,13 +404,19 @@ export default function CaregiverMedicationsPage() {
       <section style={{ marginTop: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <div style={{ fontWeight: 900 }}>登録済みの薬</div>
-          <button onClick={refresh} disabled={!headers || loading} style={{ border: "1px solid #ddd", background: "white", padding: "8px 10px", borderRadius: 10, fontWeight: 900 }}>
-            {loading ? "更新中…" : "更新"}
-          </button>
         </div>
 
         {medications.length === 0 ? (
-          <div style={{ marginTop: 10, padding: 12, background: "white", border: "1px solid #eee", borderRadius: 14, color: "#555" }}>
+          <div
+            style={{
+              marginTop: 10,
+              padding: 12,
+              background: "white",
+              border: "1px solid #eee",
+              borderRadius: 14,
+              color: "#555",
+            }}
+          >
             薬がまだありません。上から追加してください。
           </div>
         ) : (
@@ -283,19 +426,22 @@ export default function CaregiverMedicationsPage() {
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                   <div>
                     <div style={{ fontSize: 16, fontWeight: 900 }}>
-                      {m.name}{" "}
-                      {!m.isActive && <span style={{ fontSize: 12, color: "#777" }}>（停止中）</span>}
+                      {m.name} {!m.isActive && <span style={{ fontSize: 12, color: "#777" }}>（停止中）</span>}
                     </div>
-                    <div style={{ fontSize: 12, color: "#777", marginTop: 4 }}>
-                      {m.instructions ?? "メモなし"}
-                    </div>
+                    <div style={{ fontSize: 12, color: "#777", marginTop: 4 }}>{m.instructions ?? "メモなし"}</div>
                   </div>
 
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <button
                       onClick={() => toggleActive(m.id, m.isActive)}
                       disabled={loading}
-                      style={{ border: "1px solid #ddd", background: "white", padding: "8px 10px", borderRadius: 10, fontWeight: 900 }}
+                      style={{
+                        border: "1px solid #ddd",
+                        background: "white",
+                        padding: "8px 10px",
+                        borderRadius: 10,
+                        fontWeight: 900,
+                      }}
                     >
                       {m.isActive ? "停止" : "再開"}
                     </button>
@@ -320,7 +466,14 @@ export default function CaregiverMedicationsPage() {
                     <button
                       onClick={() => createSched(m.id)}
                       disabled={loading || !m.isActive}
-                      style={{ border: "1px solid #ddd", background: "#111", color: "white", padding: "8px 10px", borderRadius: 10, fontWeight: 900 }}
+                      style={{
+                        border: "1px solid #ddd",
+                        background: "#111",
+                        color: "white",
+                        padding: "8px 10px",
+                        borderRadius: 10,
+                        fontWeight: 900,
+                      }}
                     >
                       スケジュール追加
                     </button>
@@ -339,7 +492,15 @@ export default function CaregiverMedicationsPage() {
                           <button
                             onClick={() => deleteSched(s.id)}
                             disabled={loading}
-                            style={{ marginLeft: 10, border: "1px solid #ddd", background: "white", padding: "4px 8px", borderRadius: 10, fontWeight: 900, fontSize: 12 }}
+                            style={{
+                              marginLeft: 10,
+                              border: "1px solid #ddd",
+                              background: "white",
+                              padding: "4px 8px",
+                              borderRadius: 10,
+                              fontWeight: 900,
+                              fontSize: 12,
+                            }}
                           >
                             削除
                           </button>

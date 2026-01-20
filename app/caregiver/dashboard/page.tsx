@@ -130,6 +130,20 @@ export default function CaregiverDashboardPage() {
     setLoading(true);
     setErr(null);
     try {
+      let recomputeError: string | null = null;
+      try {
+        const recomputeRes = await fetch("/api/family/notifications/recompute", {
+          method: "POST",
+          headers,
+        });
+        if (!recomputeRes.ok) {
+          const recomputeJson = await recomputeRes.json();
+          recomputeError = recomputeJson?.error ?? "Failed to recompute notifications";
+        }
+      } catch (e: any) {
+        recomputeError = e?.message ?? "Failed to recompute notifications";
+      }
+
       const [resToday, resNotifs] = await Promise.all([
         fetch("/api/family/today", { headers }),
         fetch("/api/family/notifications?limit=20&days=7", { headers }),
@@ -142,6 +156,7 @@ export default function CaregiverDashboardPage() {
       const jsonNotifs = await resNotifs.json();
       if (!resNotifs.ok) throw new Error(jsonNotifs?.error ?? "Failed to load notifications");
       setNotifications(jsonNotifs.items ?? []);
+      if (recomputeError) setErr(`再計算に失敗: ${recomputeError}`);
     } catch (e: any) {
       setErr(e?.message ?? "Error");
     } finally {
