@@ -79,17 +79,15 @@ export async function ensureTodayDoseEvents(args: { familyGroupId: string; now?:
       plannedAt: plannedAtForTodayJst(s.timeOfDay, now),
     }));
 
-  // idempotentに upsert
+  // idempotentに作成（重複はユニーク制約 + skipDuplicates で捨てる）
   if (targets.length > 0) {
-    await prisma.$transaction(
-      targets.map(t =>
-        prisma.doseEvent.upsert({
-          where: { scheduleId_plannedAt: { scheduleId: t.scheduleId, plannedAt: t.plannedAt } },
-          create: { scheduleId: t.scheduleId, plannedAt: t.plannedAt },
-          update: {},
-        })
-      )
-    );
+      await prisma.doseEvent.createMany({
+      data: targets.map((t) => ({
+          scheduleId: t.scheduleId,
+          plannedAt: t.plannedAt,
+      })),
+      skipDuplicates: true,
+      });
   }
 
   // 生成後に今日分を返したいならここで取得も可
