@@ -124,10 +124,13 @@ export async function takeDose(args: {
       return doseEvent;
     }
 
-    // 2) planned 以外は変更しない（taken/missed/skipped は idempotent）
+    // 2) planned 以外は変更しない（taken/skipped は idempotent）
     //    ただし過去の不整合で残薬が減っていない場合は補正する
-    if (doseEvent.status !== "planned") {
+    //    missed は「遅れて飲んだ」を許可する（taken に更新できる）
+    if (doseEvent.status !== "planned" && doseEvent.status !== "missed") {
       const med = doseEvent.schedule.medication;
+
+      // すでに taken なのに残薬が減っていない場合だけ補正
       if (
         doseEvent.status === "taken" &&
         doseEvent.takenAt &&
@@ -136,6 +139,7 @@ export async function takeDose(args: {
       ) {
         return decrementRemaining();
       }
+
       return doseEvent;
     }
 
